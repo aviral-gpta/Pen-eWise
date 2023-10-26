@@ -1,0 +1,37 @@
+{
+    "idf.adapterTargetName": "esp32c3",
+    "actionButtons": {
+        "defaultColor": "#ff0034", // Can also use string color names.
+        "loadNpmCommands":false, // Disables automatic generation of actions for npm commands.
+        "reloadButton":null, // Custom reload button text or icon (default ↻). null value enables automatic reload on configuration change
+        "commands": [
+            {
+                "name":"🔨",
+                "color": "white",
+                "command": "C:/Espressif/frameworks/esp-idf-v5.1.1/export.bat && idf.py build",
+            },
+            {
+                "name":"🗑️",
+                "color": "white",
+                "command": "C:/Espressif/frameworks/esp-idf-v5.1.1/export.bat && idf.py fullclean",
+            },
+            {
+                "name":"menucfg",
+                "color": "white",
+                "command": "C:/Espressif/frameworks/esp-idf-v5.1.1/export.bat && start idf.py menuconfig",
+            },
+            {
+                "name":"flash",
+                "color": "white",
+                "command": "C:/Espressif/frameworks/esp-idf-v5.1.1/export.bat && idf.py flash -p COM3",
+            },
+        ]
+    },
+    "idf.openOcdConfigs": [
+        "board/esp32c3-builtin.cfg"
+    ],
+    "idf.portWin": "COM3",
+    "files.associations": {
+        "mpu6050.h": "c"
+    },
+}
