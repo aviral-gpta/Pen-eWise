@@ -13,8 +13,9 @@ namespace LSM6D{
         this->addr = addr;
     }
     esp_err_t LSM::close(){
-        writeByte(CTRL1_XL, 0x00);
-        writeByte(CTRL2_G, 0x00);
+        if(!(acc_off() != 0 || gyro_off() != 0)){
+            return -1;
+        }
         return 0;
     }
 
@@ -32,7 +33,86 @@ namespace LSM6D{
         this->addr = addr;
         return 0;
     }
-    
+
+    // Accelerometer helpers
+
+    inline esp_err_t LSM::acc_on(uint8_t mode){
+        // writeBit(INT1_CTRL, 0, 0);
+        return writeByte(CTRL1_XL, mode);
+    }
+
+    inline esp_err_t LSM::acc_off(){
+        writeByte(CTRL1_XL, 0x00);
+        return 0;
+    }   
+
+    // Gyroscope helpers
+
+    inline esp_err_t LSM::gyro_on(uint8_t mode){
+        // writeBit(INT1_CTRL, 1, 0);
+        return writeByte(CTRL2_G, mode);
+    }
+
+    inline esp_err_t LSM::gyro_off(){
+        writeByte(CTRL1_XL, 0x00);
+        return 0;
+    }   
+
+    // FIFO options
+
+    esp_err_t LSM::setFIFOMode(lsm_fifo_mode_t mode){
+        return writeBits(FIFO_CTRL5, 0, 3, mode);
+    }
+
+    bool LSM::isBelowMark(){
+        uint8_t val = 0;
+        readBit(FIFO_STATUS2, 7, &val);
+        return (val == 0) ? true : false;
+    }
+
+    bool LSM::isFilled(){
+        uint8_t val = 0;
+        readBit(FIFO_STATUS2, 6, &val);
+        return (val == 0) ? false : true;
+    }
+
+    bool LSM::isEmpty(){
+        uint8_t val = 0;
+        readBit(FIFO_STATUS2, 4, &val);
+        return (val == 0) ? true : false;
+    }
+
+    bool LSM::isFullSmart(){
+        uint8_t val = 0;
+        readBit(FIFO_STATUS2, 5, &val);
+        return (val == 0) ? false : true;
+    }
+
+    uint16_t LSM::numUnread(){
+        u_int8_t low = 0, high = 0;
+        readByte(FIFO_STATUS1, &low);
+        readBits(FIFO_STATUS2, 0, 3, &high);
+        uint16_t unread = 0;         
+        unread = unread or high;
+        unread = (unread << 8);
+        unread = unread or low;
+        return unread;
+    }
+
+    esp_err_t LSM::readFIFO(uint16_t* data){
+        u_int8_t low = 0, high = 0;
+        readByte(FIFO_DATA_OUT_L, &low);
+        readByte(FIFO_DATA_OUT_H, &high);
+        uint16_t val = 0;            
+        val = val or high;
+        val = (val << 8);
+        val = val or low;
+        *data = val;
+        return 0;
+    }
+
+    // Utils
+
     esp_err_t LSM::testConnection(){
         uint8_t val;
         readByte(WHO_AM_I, &val);
