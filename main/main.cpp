@@ -116,10 +116,10 @@ vTaskDelay(1000 / portTICK_PERIOD_MS);
     MPU.setGyroFullScale(mpud::GYRO_FS_250DPS);
     MPU.setDigitalLowPassFilter(mpud::DLPF_42HZ);  
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    // MPU.compassInit();
+    MPU.compassInit();
     
-    // example_TCP_init();
-    // TCP_connect();
+    example_TCP_init();
+    TCP_connect();
 
     ESP_ERROR_CHECK(MPU.setFIFOConfig(mpud::FIFO_CFG_ACCEL | mpud::FIFO_CFG_GYRO));
     ESP_ERROR_CHECK(MPU.setFIFOEnabled(true));
@@ -195,7 +195,7 @@ void mpuTask(void*){
                     yaw += 360.f;
                 printf("Pitch: %+6.1f \t Roll: %+6.1f \t Yaw: %+6.1f \n", pitch, roll, yaw);
             }
-            // TCP_transmit();
+            TCP_transmit();
             
         }
     }

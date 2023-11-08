@@ -189,6 +189,7 @@ esp_err_t example_wifi_sta_do_connect(wifi_config_t wifi_config, bool wait)
 
     ESP_LOGI(TAG, "Connecting to %s...", wifi_config.sta.ssid);
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_set_max_tx_power(34));
     ESP_LOGI(TAG, "WiFi configuration set, connecting..." );
     esp_err_t ret = esp_wifi_connect();
     ESP_LOGI(TAG, "esp_wifi_connect returned %d", ret);
