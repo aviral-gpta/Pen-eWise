@@ -2,9 +2,9 @@
 #include "include/registers.hpp"
 
 namespace LSM6D{
-    LSM::~LSM(){
-        close();
-    }
+    // LSM::~LSM(){
+    //     close();
+    // }
     LSM::LSM(lsm_bus_t& bus){
         this->bus = &bus;
     }
@@ -116,7 +116,8 @@ namespace LSM6D{
     esp_err_t LSM::testConnection(){
         uint8_t val;
         readByte(WHO_AM_I, &val);
-        return val == 0x6A ? 0 : -1;
+        ESP_LOGI("LSM", "Read %u from WHO_AM_I", val);
+        return val == 64 ? ESP_OK : ESP_ERR_NOT_FOUND;
     }
 
     /*! Read a single bit from a register*/

@@ -21,6 +21,8 @@
 #include "esp_event.h"
 #include <sys/socket.h>
 #include <netdb.h>
+
+#include "LSM6D.hpp"
 // ...
 
 #define PORT 3333
@@ -69,6 +71,18 @@ void MPU_init(MPU_t mpu){
     ESP_ERROR_CHECK(mpu.initialize());
 }
 
+void LSM_init(LSM6D::LSM lsm){
+    i2c0.begin(SDA, SCL, CLOCK_SPEED);
+    lsm.setBus(i2c0);
+    lsm.setAddr(LSM6D_I2C_ADD_LOW);
+    while (esp_err_t err = lsm.testConnection()) {
+        ESP_LOGE("LSM", "Failed to connect to the MPU, error=%#X", err);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+    ESP_LOGI("LSM", "LSM connection successful!");
+    // ESP_ERROR_CHECK(mpu.initialize());
+}
+
 void example_TCP_init(){
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
@@ -106,25 +120,28 @@ void TCP_connect(){
     sockNum =  sock;
 }
 
+LSM6D::LSM lsm;
+
 extern "C" void app_main() {
 vTaskDelay(1000 / portTICK_PERIOD_MS);
-    MPU_init(MPU);
-    calibrate_IMU(MPU);
+    // MPU_init(MPU);
+    // calibrate_IMU(MPU);
 
-    MPU.setSampleRate(100U);
-    MPU.setAccelFullScale(mpud::ACCEL_FS_2G);
-    MPU.setGyroFullScale(mpud::GYRO_FS_250DPS);
-    MPU.setDigitalLowPassFilter(mpud::DLPF_42HZ);  
+    // MPU.setSampleRate(100U);
+    // MPU.setAccelFullScale(mpud::ACCEL_FS_2G);
+    // MPU.setGyroFullScale(mpud::GYRO_FS_250DPS);
+    // MPU.setDigitalLowPassFilter(mpud::DLPF_42HZ);  
+    LSM_init(lsm);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     MPU.compassInit();
     
     example_TCP_init();
     TCP_connect();
 
-    ESP_ERROR_CHECK(MPU.setFIFOConfig(mpud::FIFO_CFG_ACCEL | mpud::FIFO_CFG_GYRO));
-    ESP_ERROR_CHECK(MPU.setFIFOEnabled(true));
-    ESP_ERROR_CHECK(MPU.resetFIFO());
-    xTaskCreate(mpuTask, "MPUTask", 2 * 1024, nullptr, 5, nullptr);
+    // ESP_ERROR_CHECK(MPU.setFIFOConfig(mpud::FIFO_CFG_ACCEL | mpud::FIFO_CFG_GYRO));
+    // ESP_ERROR_CHECK(MPU.setFIFOEnabled(true));
+    // ESP_ERROR_CHECK(MPU.resetFIFO());
+    // xTaskCreate(mpuTask, "MPUTask", 2 * 1024, nullptr, 5, nullptr);
     
 
     // MPU.acceleration(&accelRaw);  // fetch raw data from the registers

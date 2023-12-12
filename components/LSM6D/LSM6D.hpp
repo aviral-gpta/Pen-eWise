@@ -2,6 +2,9 @@
 #define _LSM6D_
 
 #include "I2Cbus.hpp"
+#include "esp_check.h"
+#include "esp_err.h"
+#include "esp_log.h"
 
 typedef I2C_t lsm_bus_t;
 
@@ -29,7 +32,7 @@ namespace LSM6D{
             // Constructors and Destructors
 
             LSM() = default;
-            ~LSM();                                         // Default constuctor and destructor, use compiler generated versions
+            // ~LSM();                                         // Default constuctor and destructor, use compiler generated versions
             LSM(lsm_bus_t& bus);                            // Specify the bus, don't convert to I2C_t
             LSM(lsm_bus_t& bus, lsm_i2caddr_t addr);
 
