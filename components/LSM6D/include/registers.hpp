@@ -24,6 +24,8 @@ constexpr uint8_t CTRL8_XL = 0x17;
 constexpr uint8_t CTRL9_XL = 0x18;
 constexpr uint8_t CTRL10_C = 0x19;
 
+constexpr uint8_t STATUS_REG = 0x1E;
+
 // ------------ Temperature output ------------ //
 
 constexpr uint8_t OUTX_TEMP_L = 0x20;

@@ -34,29 +34,36 @@ namespace LSM6D{
         return 0;
     }
 
+    // uint8_t LMS::readStatus(){
+    //     uint8_t val;
+    //     readByte(STATUS_REG, &val);
+    //     return val;
+    // }
+
     // Accelerometer helpers
 
-    inline esp_err_t LSM::acc_on(uint8_t mode){
-        // writeBit(INT1_CTRL, 0, 0);
-        return writeByte(CTRL1_XL, mode);
-    }
+    // inline esp_err_t LSM::acc_on(uint8_t mode = 0x60){
+    //     writeBit(INT1_CTRL, 0, 1);
+    //     return writeByte(CTRL1_XL, mode);
+    // }
 
-    inline esp_err_t LSM::acc_off(){
-        writeByte(CTRL1_XL, 0x00);
-        return 0;
-    }   
+    // inline esp_err_t LSM::acc_off(){
+    //     writeBit(INT1_CTRL, 0, 0);
+    //     writeByte(CTRL1_XL, 0x00);
+    //     return 0;
+    // }   
 
     // Gyroscope helpers
 
-    inline esp_err_t LSM::gyro_on(uint8_t mode){
-        // writeBit(INT1_CTRL, 1, 0);
-        return writeByte(CTRL2_G, mode);
-    }
+    // inline esp_err_t LSM::gyro_on(uint8_t mode - 0x60){
+    //     writeBit(INT1_CTRL, 1, 1);
+    //     return writeByte(CTRL2_G, mode);
+    // }
 
-    inline esp_err_t LSM::gyro_off(){
-        writeByte(CTRL1_XL, 0x00);
-        return 0;
-    }   
+    // inline esp_err_t LSM::gyro_off(){
+    //     writeByte(CTRL1_XL, 0x00);
+    //     return 0;
+    // }   
 
     // FIFO options
 
@@ -116,8 +123,33 @@ namespace LSM6D{
     esp_err_t LSM::testConnection(){
         uint8_t val;
         readByte(WHO_AM_I, &val);
-        ESP_LOGI("LSM", "Read %u from WHO_AM_I", val);
-        return val == 64 ? ESP_OK : ESP_ERR_NOT_FOUND;
+        return val == 0x06B ? ESP_OK : ESP_ERR_NOT_FOUND;
+    }
+
+    void LSM::getAcc(){
+        uint8_t x = (uint8_t)0x10;
+        uint8_t y = (uint8_t)0x60;
+        writeByte(x, y);
+        uint8_t curr1, curr2;
+        readByte(OUTZ_L_XL, &curr1);
+        readByte( 0x2D, &curr2);
+        printAcc(curr1, curr2);
+    }
+
+    void LSM::printAcc(uint8_t lo, uint8_t hi, uint8_t scale){
+        int16_t x = 0x0;
+        x = x | hi;
+        x = x << 8;
+        x = x | lo;
+        int mx = 1 << 15;
+        float val = float(x) / float(mx);
+        val *= scale;
+        ESP_LOGI("LSM", "Accelerometer reading: %f ", val);
+        return;
+    }
+
+    esp_err_t LSM::reset(){
+        return ESP_OK;
     }
 
     /*! Read a single bit from a register*/

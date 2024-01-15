@@ -71,11 +71,11 @@ void MPU_init(MPU_t mpu){
     ESP_ERROR_CHECK(mpu.initialize());
 }
 
-void LSM_init(LSM6D::LSM lsm){
+void LSM_init(LSM6D::LSM *lsm){
     i2c0.begin(SDA, SCL, CLOCK_SPEED);
-    lsm.setBus(i2c0);
-    lsm.setAddr(LSM6D_I2C_ADD_LOW);
-    while (esp_err_t err = lsm.testConnection()) {
+    lsm->setBus(i2c0);
+    lsm->setAddr(LSM6D_I2C_ADD_LOW);
+    while (esp_err_t err = lsm->testConnection()) {
         ESP_LOGE("LSM", "Failed to connect to the MPU, error=%#X", err);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
@@ -123,7 +123,20 @@ void TCP_connect(){
 LSM6D::LSM lsm;
 
 extern "C" void app_main() {
-vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+    gpio_pulldown_en(GPIO_NUM_20);
+    // gpio_set_pull_mode(GPIO_NUM_20, GPIO_PULLDOWN_ONLY); 
+    gpio_set_direction(GPIO_NUM_20, GPIO_MODE_OUTPUT);
+    
+    LSM_init(&lsm);
+
+    while (1)
+    {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        // lsm.test();
+        lsm.getAcc();
+    }
+    
     // MPU_init(MPU);
     // calibrate_IMU(MPU);
 
@@ -131,12 +144,16 @@ vTaskDelay(1000 / portTICK_PERIOD_MS);
     // MPU.setAccelFullScale(mpud::ACCEL_FS_2G);
     // MPU.setGyroFullScale(mpud::GYRO_FS_250DPS);
     // MPU.setDigitalLowPassFilter(mpud::DLPF_42HZ);  
-    LSM_init(lsm);
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-    MPU.compassInit();
+    // gpio_reset_pin(GPIO_NUM_20);
+    // gpio_pulldown_en(GPIO_NUM_20);
+    // gpio_set_pull_mode(GPIO_NUM_20, GPIO_PULLDOWN_ONLY); 
+    // gpio_set_direction(GPIO_NUM_20, GPIO_MODE_OUTPUT);
+    // LSM_init(lsm);
+    // vTaskDelay(10000 / portTICK_PERIOD_MS);
+    // MPU.compassInit();
     
-    example_TCP_init();
-    TCP_connect();
+    // example_TCP_init();
+    // TCP_connect();
 
     // ESP_ERROR_CHECK(MPU.setFIFOConfig(mpud::FIFO_CFG_ACCEL | mpud::FIFO_CFG_GYRO));
     // ESP_ERROR_CHECK(MPU.setFIFOEnabled(true));

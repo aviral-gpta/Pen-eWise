@@ -8,6 +8,8 @@
 
 typedef I2C_t lsm_bus_t;
 
+const int8_t bootTime = 15;                                 // 15ms to boot LSM6D - for reference
+
 typedef enum : uint8_t{
     LSM6D_I2C_ADD_LOW = 0X6A,                               // SD0/SA0 LOW
     LSM6D_I2C_ADD_HIGH = 0X6B                                // SD0/SA0 HIGH
@@ -69,7 +71,14 @@ namespace LSM6D{
 
             // Utils
 
+            esp_err_t reset();
             esp_err_t testConnection();                     // test connection by reading who_am_i register
+
+            void getAcc();
+            void printAcc(uint8_t lo, uint8_t hi, uint8_t scale = 2);
+            // Tap detection
+
+            // Reading and writing functions
 
             esp_err_t readBit(uint8_t regAddr, uint8_t bitNum, uint8_t* data);
             esp_err_t readBits(uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t* data);
