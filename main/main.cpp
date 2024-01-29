@@ -122,6 +122,12 @@ void TCP_connect(){
 
 LSM6D::LSM lsm;
 
+void lsmTask(void* argc_pv){
+    while(1){
+        lsm.readFIFO();
+    }
+}
+
 extern "C" void app_main() {
 
     gpio_pulldown_en(GPIO_NUM_20);
@@ -130,11 +136,15 @@ extern "C" void app_main() {
     
     LSM_init(&lsm);
 
-    while (1)
-    {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        // lsm.test();
-        lsm.getAcc();
+    lsm.FIFO_init(LSM_FIFO_CONT);
+    lsm.G_init();
+    lsm.XL_init();
+
+    lsm.getAcc();
+
+    while(1){
+        vTaskDelay(10000 / portTICK_PERIOD_MS);
+        lsm.readFIFO();
     }
     
     // MPU_init(MPU);

@@ -6,6 +6,8 @@
 #include "esp_err.h"
 #include "esp_log.h"
 
+#define LSM_ERR_CHECK(x) LSM6D::errorCheckLogger(x, __FUNCTION__, __LINE__, #x)
+
 typedef I2C_t lsm_bus_t;
 
 const int8_t bootTime = 15;                                 // 15ms to boot LSM6D - for reference
@@ -20,17 +22,30 @@ typedef enum : uint8_t{
     LSM_FIFO_DEF = 0X1,                                     // Fill until FIFO full
     LSM_FIFO_CONT_TRIG = 0X3,                               // Continuous until triggered to FIFO
     LSM_FIFO_BY_TRIG = 0X4,                                 // Bypass until trigerred to FIFO
-    LSM_FIFO_CONT = 0X6                                     // Continuous mode - Write on older if data fills
+    LSM_FIFO_CONT = 0X6                                     // Continuous mode - Write on older data if FIFO fills
 } lsm_fifo_mode_t;
 
 namespace LSM6D{
+
+    static esp_err_t err;                           // Last error
+
+    inline esp_err_t errorCheckLogger(esp_err_t x, const char* func, const int line, const char* expr) {
+        // Error logger function
+        // Default level -> Error
+        if (x) ESP_LOGE("LSM6D", "func:%s @ line:%d, expr:\"%s\", error:0x%X", func, line, expr, x);
+        err = x;
+        return x;
+    }
+
     class LSM{
+
         private:
             lsm_bus_t* bus;                                 // Points to the I2C bus
             lsm_i2caddr_t addr;                             // Slave address
             uint8_t buffer[16];
-            esp_err_t err;                                  // Use for error handling 
         public:
+
+
             // Constructors and Destructors
 
             LSM() = default;
@@ -47,27 +62,23 @@ namespace LSM6D{
             lsm_i2caddr_t getAddr();
             esp_err_t setAddr(lsm_i2caddr_t addr);
 
-            // Accelerometer helpers
+            // Accelerometer functions
 
-            inline esp_err_t acc_on(uint8_t mode);
-            inline esp_err_t acc_off();
+            esp_err_t XL_init(uint8_t mode = 0x6);
+            esp_err_t XL_off();
             bool acc_available();
 
-            // Gyroscope helpers
+            // Gyroscope functions
 
-            inline esp_err_t gyro_on(uint8_t mode);
-            inline esp_err_t gyro_off();
+            esp_err_t G_init(uint8_t mode = 0x6);
+            esp_err_t G_off();
             bool gyro_available();
 
             // FIFO functions
 
-            esp_err_t setFIFOMode(lsm_fifo_mode_t mode);
-            bool isBelowMark();
-            bool isFilled();
-            bool isEmpty();
-            bool isFullSmart();
-            uint16_t numUnread();
-            esp_err_t readFIFO(uint16_t* data);              // Read Data(2 Byte long) to 'data'
+            esp_err_t setWatermark(uint16_t wtm = 1 << 5);
+            esp_err_t readFIFO();              // Read Data(2 Byte long) to 'data'
+            esp_err_t FIFO_init(lsm_fifo_mode_t mode, uint16_t wtm_level = 512);
 
             // Utils
 
@@ -75,7 +86,9 @@ namespace LSM6D{
             esp_err_t testConnection();                     // test connection by reading who_am_i register
 
             void getAcc();
-            void printAcc(uint8_t lo, uint8_t hi, uint8_t scale = 2);
+            void printXL(uint8_t lo, uint8_t hi, uint8_t scale);
+            void printXL(uint16_t raw_val, uint8_t scale = 2);
+
             // Tap detection
 
             // Reading and writing functions

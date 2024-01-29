@@ -51,17 +51,20 @@ constexpr uint8_t OUTZ_H_XL = 0x2D;
 
 // ------------  FIFO registers ------------- //
 
-constexpr uint8_t FIFO_CTRL1 = 0x06;
-constexpr uint8_t FIFO_CTRL2 = 0x07;
-constexpr uint8_t FIFO_CTRL3 = 0x08;
-constexpr uint8_t FIFO_CTRL4 = 0x09;
+constexpr uint8_t FIFO_CTRL1 = 0x07;
+constexpr uint8_t FIFO_CTRL2 = 0x08;
+constexpr uint8_t FIFO_CTRL3 = 0x09;
+constexpr uint8_t FIFO_CTRL4 = 0x0A;
 constexpr uint8_t FIFO_CTRL5 = 0x0A;
 constexpr uint8_t FIFO_STATUS1 = 0x3A;
 constexpr uint8_t FIFO_STATUS2 = 0x3B;
-constexpr uint8_t FIFO_STATUS3 = 0x3C;
-constexpr uint8_t FIFO_STATUS4 = 0x3D;
-constexpr uint8_t FIFO_DATA_OUT_L = 0x3E; 
-constexpr uint8_t FIFO_DATA_OUT_H = 0x3F;
+constexpr uint8_t FIFO_DATA_OUT_TAG = 0x78;
+constexpr uint8_t  FIFO_DATA_OUT_X_L = 0X79;
+constexpr uint8_t  FIFO_DATA_OUT_X_H = 0X7A;
+constexpr uint8_t  FIFO_DATA_OUT_Y_L = 0X7B;
+constexpr uint8_t  FIFO_DATA_OUT_Y_H = 0X7C;
+constexpr uint8_t  FIFO_DATA_OUT_Z_L = 0X7D;
+constexpr uint8_t  FIFO_DATA_OUT_Z_H = 0X7E;
 
 // ------------------------------------------ //
 
