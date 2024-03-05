@@ -120,13 +120,7 @@ void TCP_connect(){
     sockNum =  sock;
 }
 
-LSM6D::LSM lsm;
-
-void lsmTask(void* argc_pv){
-    while(1){
-        lsm.readFIFO();
-    }
-}
+LSM6D::LSM lsmtest;
 
 extern "C" void app_main() {
 
@@ -134,17 +128,17 @@ extern "C" void app_main() {
     // gpio_set_pull_mode(GPIO_NUM_20, GPIO_PULLDOWN_ONLY); 
     gpio_set_direction(GPIO_NUM_20, GPIO_MODE_OUTPUT);
     
-    LSM_init(&lsm);
+    LSM_init(&lsmtest);
 
-    lsm.FIFO_init(LSM_FIFO_CONT);
-    lsm.G_init();
-    lsm.XL_init();
+    lsmtest.FIFO_init(LSM_FIFO_CONT, 0x06, 0x06);
+    // lsmtest.G_init();
+    // lsmtest.XL_init();
 
-    lsm.getAcc();
+    // lsmtest.chk();
 
     while(1){
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
-        lsm.readFIFO();
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        lsmtest.readFIFO();
     }
     
     // MPU_init(MPU);

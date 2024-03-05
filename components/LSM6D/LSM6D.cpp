@@ -72,34 +72,38 @@ namespace LSM6D{
         return err;
     }   
 
-    // FIFO options
+    // FIFO 
 
-    esp_err_t LSM::setWatermark(uint16_t wtm){
-        uint8_t wtm_val[2] = {static_cast<uint8_t>(wtm & 0xFF), static_cast<uint8_t>(wtm >> 8)};
-        LSM_ERR_CHECK(writeByte(FIFO_CTRL1, wtm_val[0]));
-        LSM_ERR_CHECK(writeBit(FIFO_CTRL2, 0, wtm_val[1] & 1));
+    // esp_err_t LSM::FIFOStatus(uint16_t *val){
+
+    // }
+
+    esp_err_t LSM::FIFO_init(lsm_fifo_mode_t mode, uint8_t XL_ODR, uint8_t G_ODR, uint16_t wtm_level){
+        // Set accelerometer and gyroscope BDR (<= their ODR)
+        LSM_ERR_CHECK(writeByte(FIFO_CTRL3, XL_ODR | (G_ODR << 4)));
+        // set FIFO mode
+        LSM_ERR_CHECK(writeByte(FIFO_CTRL4, 0x06));
+        // Generate DEN signal
+        writeByte(CTRL9_XL, 0xE8);
+        writeByte(CTRL6_C, 0xC0);
+        LSM_ERR_CHECK(writeByte(CTRL1_XL, (XL_ODR << 4) | 0x0C));
+        LSM_ERR_CHECK(writeByte(CTRL2_G, (G_ODR << 4) | 0x0C));
         return err;
     }
 
     esp_err_t LSM::readFIFO(){
-        uint8_t fifo_status[2] = {0, 0};
-        LSM_ERR_CHECK(readBytes(FIFO_STATUS1, 2, fifo_status));
         uint8_t lo, hi;
         readByte(FIFO_STATUS1, &lo);
-        readByte(FIFO_STATUS1, &hi);
-        hi = hi & (03);
-        // Check if watermark is reached
-        // if(((fifo_status[1] >> 7) & 1) == 0){
-        //     return err;
-        // }
-        uint16_t numUnread = uint16_t(lo) + (uint16_t(hi) << 8);
-        if(1){
-            ESP_LOGI("LSM6D FIFO: ", "Samples: %i", numUnread);
-            return err;
-        }
+        readByte(FIFO_STATUS2, &hi);
+        uint16_t numUnread = uint16_t(lo) + (uint16_t(hi & 03) << 8);
         struct fifo_data_t* dataArray = (fifo_data_t*)(malloc(numUnread * sizeof(struct fifo_data_t)));
         for(int i = 0; i < numUnread; ++i){
-            LSM_ERR_CHECK(readByte(FIFO_DATA_OUT_TAG, (uint8_t*)&dataArray[i].tag));
+            uint8_t tg = 0;
+            uint8_t msk = ((1 << 5) - 1) << 3;
+            LSM_ERR_CHECK(readByte(FIFO_DATA_OUT_TAG, &tg));
+            tg &= msk;
+            tg = tg >> 3;
+            dataArray[i].tag = static_cast<lsm_fifo_tag_t>(tg);
             uint8_t data_x[2], data_y[2], data_z[2]; 
             LSM_ERR_CHECK(readBytes(FIFO_DATA_OUT_X_L, 2, data_x));
             LSM_ERR_CHECK(readBytes(FIFO_DATA_OUT_Y_L, 2, data_y));
@@ -108,30 +112,14 @@ namespace LSM6D{
             dataArray[i].data_y = (uint16_t)data_y[0] | (((uint16_t)data_y[1]) << 8);
             dataArray[i].data_z = (uint16_t)data_z[0] | (((uint16_t)data_z[1]) << 8);
         }
-        for(int i = 0; i < numUnread; ++i){
-            if(dataArray[i].tag == XL_NC){
-                printXL(dataArray[i].data_x);
-            }
-        }
-        ESP_LOGI("LSM6D FIFO:", "Read FIFO packet");
         free(dataArray);
         return err;
     }
 
-    esp_err_t LSM::FIFO_init(lsm_fifo_mode_t mode, uint16_t wtm_level){
-        // Set BDU
-        LSM_ERR_CHECK(writeBit(CTRL3_C, 6, 1));
-        // Set accelerometer and gyroscope BDR (<= their ODR)
-        uint8_t XL_mode, G_mode;
-        LSM_ERR_CHECK(readBits(CTRL1_XL, 4, 4, &XL_mode));
-        LSM_ERR_CHECK(readBits(CTRL2_G, 4, 4, &G_mode));
-        LSM_ERR_CHECK(writeByte(FIFO_CTRL3, 6 | (6 << 4)));
-        // Set watermark
-        LSM_ERR_CHECK(setWatermark(wtm_level));
-        // Generate DEN signal
-        LSM_ERR_CHECK(writeByte(CTRL6_C, 0x80));
-        // set FIFO mode
-        LSM_ERR_CHECK(writeBits(FIFO_CTRL4, 0, 3, mode));
+    esp_err_t LSM::setWatermark(uint16_t wtm){
+        uint8_t wtm_val[2] = {static_cast<uint8_t>(wtm & 0xFF), static_cast<uint8_t>(wtm >> 8)};
+        LSM_ERR_CHECK(writeByte(FIFO_CTRL1, wtm_val[0]));
+        LSM_ERR_CHECK(writeBit(FIFO_CTRL2, 0, wtm_val[1] & 1));
         return err;
     }
 
@@ -163,7 +151,7 @@ namespace LSM6D{
     }
 
     void LSM::printXL(uint16_t raw_val, uint8_t scale){
-        float val = (float(raw_val) / float(1 << 15)) * scale;
+        float val = (float(raw_val) / float(1 << 16)) * scale;
         ESP_LOGI("LSM", "Accelerometer reading: %f ", val);
     }
 

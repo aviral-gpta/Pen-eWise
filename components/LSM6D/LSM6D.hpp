@@ -76,9 +76,9 @@ namespace LSM6D{
 
             // FIFO functions
 
-            esp_err_t setWatermark(uint16_t wtm = 1 << 5);
+            esp_err_t FIFO_init(lsm_fifo_mode_t mode, uint8_t XL_ODR, uint8_t G_ODR, uint16_t wtm_level = 2);
             esp_err_t readFIFO();              // Read Data(2 Byte long) to 'data'
-            esp_err_t FIFO_init(lsm_fifo_mode_t mode, uint16_t wtm_level = 512);
+            esp_err_t setWatermark(uint16_t wtm = 1 << 5);
 
             // Utils
 
