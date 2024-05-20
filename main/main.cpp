@@ -31,9 +31,13 @@ gpio_num_t SDA = GPIO_NUM_10;
 gpio_num_t SCL = GPIO_NUM_8;
 uint32_t CLOCK_SPEED = 400000;
 MPU_t MPU;
-const int chunkSize = 50;
-constexpr uint16_t kFIFOPacketSize = 12*chunkSize;
-uint8_t buffer[kFIFOPacketSize];
+const int chunkSize = 100;
+constexpr uint16_t MPUPacketSize = 12*chunkSize;
+constexpr uint16_t LSMPacketSize = 14*chunkSize;
+uint8_t MPUbuffer[MPUPacketSize];
+uint8_t LSMbuffer[LSMPacketSize]={0};
+// const int LSM_chunkSize = 200;
+// struct fifo_data_t* LSMdata = (fifo_data_t*)(malloc(length * sizeof(struct fifo_data_t)))
 float roll{0}, pitch{0}, yaw{0};
 int16_t rawData[chunkSize][6] = {0};
 bool is_connected = false;
@@ -42,7 +46,8 @@ int sockNum=-1;
 static const char* MPUTAG = "MPU";
 static const char* TCPTAG = "TCP";
 void mpuTask(void*);
-void TCP_transmit();
+void lsmTask(void*);
+void TCP_transmit(const void *dataptr, size_t size);
 
 void calibrate_IMU(MPU_t mpu){
     mpud::selftest_t retSelfTest;
@@ -60,7 +65,7 @@ void calibrate_IMU(MPU_t mpu){
 }
 
 void MPU_init(MPU_t mpu){
-    i2c0.begin(SDA, SCL, CLOCK_SPEED);
+    // i2c0.begin(SDA, SCL, CLOCK_SPEED);
     mpu.setBus(i2c0);
     mpu.setAddr(mpud::MPU_I2CADDRESS_AD0_LOW);
     while (esp_err_t err = mpu.testConnection()) {
@@ -119,122 +124,75 @@ void TCP_connect(){
     ESP_LOGI(TCPTAG, "Successfully connected");
     sockNum =  sock;
 }
-
 LSM6D::LSM lsmtest;
 
 extern "C" void app_main() {
 
     gpio_pulldown_en(GPIO_NUM_20);
-    // gpio_set_pull_mode(GPIO_NUM_20, GPIO_PULLDOWN_ONLY); 
     gpio_set_direction(GPIO_NUM_20, GPIO_MODE_OUTPUT);
-    
+    example_TCP_init();
+    TCP_connect();
     LSM_init(&lsmtest);
+    lsmtest.setAccelFullScale(0x00);
+    lsmtest.setGyroFullScale(0x00);
 
-    lsmtest.FIFO_init(LSM_FIFO_CONT, 0x06, 0x06);
-    // lsmtest.G_init();
-    // lsmtest.XL_init();
-
-    // lsmtest.chk();
-
-    while(1){
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        lsmtest.readFIFO();
-    }
+    gpio_set_direction(GPIO_NUM_20, GPIO_MODE_INPUT); 
+    lsmtest.FIFO_init(LSM_FIFO_CONT, 0x04, 0x04, 200U);  //WTM level should be set according to the chunk size. 1LSB of WTM is 7 bytes.
     
-    // MPU_init(MPU);
-    // calibrate_IMU(MPU);
+    MPU_init(MPU);
+    calibrate_IMU(MPU);
 
-    // MPU.setSampleRate(100U);
-    // MPU.setAccelFullScale(mpud::ACCEL_FS_2G);
-    // MPU.setGyroFullScale(mpud::GYRO_FS_250DPS);
-    // MPU.setDigitalLowPassFilter(mpud::DLPF_42HZ);  
-    // gpio_reset_pin(GPIO_NUM_20);
-    // gpio_pulldown_en(GPIO_NUM_20);
-    // gpio_set_pull_mode(GPIO_NUM_20, GPIO_PULLDOWN_ONLY); 
-    // gpio_set_direction(GPIO_NUM_20, GPIO_MODE_OUTPUT);
-    // LSM_init(lsm);
-    // vTaskDelay(10000 / portTICK_PERIOD_MS);
-    // MPU.compassInit();
-    
-    // example_TCP_init();
-    // TCP_connect();
+    MPU.setSampleRate(100U);
+    MPU.setAccelFullScale(mpud::ACCEL_FS_2G);
+    MPU.setGyroFullScale(mpud::GYRO_FS_250DPS);
+    MPU.setDigitalLowPassFilter(mpud::DLPF_42HZ);  
+    vTaskDelay(10000 / portTICK_PERIOD_MS);
+    MPU.compassInit();
 
-    // ESP_ERROR_CHECK(MPU.setFIFOConfig(mpud::FIFO_CFG_ACCEL | mpud::FIFO_CFG_GYRO));
-    // ESP_ERROR_CHECK(MPU.setFIFOEnabled(true));
-    // ESP_ERROR_CHECK(MPU.resetFIFO());
-    // xTaskCreate(mpuTask, "MPUTask", 2 * 1024, nullptr, 5, nullptr);
-    
-
-    // MPU.acceleration(&accelRaw);  // fetch raw data from the registers
-    // MPU.rotation(&gyroRaw);       // fetch raw data from the registers
-    // printf("accel: %+d %+d %+d\n", accelRaw.x, accelRaw.y, accelRaw.z);
-    // printf("gyro: %+d %+d %+d\n", gyroRaw[0], gyroRaw[1], gyroRaw[2]);
-    // mpud::float_axes_t accelG = mpud::accelms2(accelRaw, mpud::ACCEL_FS_4G);  // raw data to gravity
-    // mpud::float_axes_t gyroDPS = mpud::gyroDegPerSec(gyroRaw, mpud::GYRO_FS_500DPS);  // raw data to º/s
-    // printf("accel: %+.2f %+.2f %+.2f %+.2f %+.2f %+.2f\n", accelG.x, accelG.y, accelG.z, gyroDPS.x, gyroDPS.y, gyroDPS.z);
-    // printf("gyro: %+.2f %+.2f %+.2f\n", gyroDPS.x, gyroDPS.y, gyroDPS.z);
-    // vTaskDelay(200 / portTICK_PERIOD_MS);
-
+    ESP_ERROR_CHECK(MPU.setFIFOConfig(mpud::FIFO_CFG_ACCEL | mpud::FIFO_CFG_GYRO));
+    ESP_ERROR_CHECK(MPU.setFIFOEnabled(true));
+    ESP_ERROR_CHECK(MPU.resetFIFO());
+    xTaskCreate(mpuTask, "MPUTask", 2 * 1024, nullptr, 5, nullptr);
+    xTaskCreate(lsmTask, "LSMTask", 2 * 1024, nullptr, 5, nullptr);
     }
 
 
-void TCP_transmit(){    
+void TCP_transmit(const void *dataptr, size_t size){    
     if (sockNum < 0) {
         ESP_LOGE(TCPTAG, "Socket Error: errno %d", errno);
         // break;
     }
-    int err = send(sockNum, &rawData, sizeof(rawData), 0);
+    int err = send(sockNum, dataptr, size, 0);
     if (err < 0) {
         ESP_LOGE(TCPTAG, "Error occurred during sending: errno %d", errno);
         // break;
     }
-    else if(err == 0){
-        ESP_LOGE(TCPTAG, "Data sent");
+    else if(err >= 0){
+        ESP_LOGI(TCPTAG, "Data sent");
         // break;
+    }
+}
+
+void lsmTask(void*){
+    while(1){
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+        if(gpio_get_level(GPIO_NUM_20)){
+            uint16_t cnt=lsmtest.getFIFOCount();
+            // ESP_LOGI("LSM", "FIFO count: %d", cnt);
+            lsmtest.readFIFO(chunkSize, LSMbuffer);
+            TCP_transmit(&LSMbuffer, sizeof(LSMbuffer));
+        }
     }
 }
 
 void mpuTask(void*){
     while(1){
+        vTaskDelay(10 / portTICK_PERIOD_MS);
         uint16_t fifocount = MPU.getFIFOCount();
         // ESP_LOGI(TAG, "FIFO count: %d", fifocount);
-        if(fifocount>= kFIFOPacketSize) {
-            
-            MPU.readFIFO(kFIFOPacketSize, buffer);
-            for(int i=0; i<chunkSize; i++){
-                mpud::raw_axes_t rawAccel, rawGyro;
-                rawAccel.x = buffer[0 + i*12] << 8 | buffer[1 + i*12];
-                rawAccel.y = buffer[2 + i*12] << 8 | buffer[3 + i*12];
-                rawAccel.z = buffer[4 + i*12] << 8 | buffer[5 + i*12];
-                rawGyro.x  = buffer[6 + i*12] << 8 | buffer[7 + i*12];
-                rawGyro.y  = buffer[8 + i*12] << 8 | buffer[9 + i*12];
-                rawGyro.z  = buffer[10 + i*12] << 8 | buffer[11 + i*12];
-                rawData[i][0] = htons(rawAccel.x);
-                rawData[i][1] = htons(rawAccel.y);
-                rawData[i][2] = htons(rawAccel.z);
-                rawData[i][3] = htons(rawGyro.x);
-                rawData[i][4] = htons(rawGyro.y);
-                rawData[i][5] = htons(rawGyro.z);
-                constexpr double kRadToDeg = 57.2957795131;
-                constexpr float kDeltaTime = 1.f / 100;
-                float gyroRoll             = roll + mpud::math::gyroDegPerSec(rawGyro.x, mpud::GYRO_FS_250DPS) * kDeltaTime;
-                float gyroPitch            = pitch + mpud::math::gyroDegPerSec(rawGyro.y, mpud::GYRO_FS_250DPS) * kDeltaTime;
-                float gyroYaw              = yaw + mpud::math::gyroDegPerSec(rawGyro.z, mpud::GYRO_FS_250DPS) * kDeltaTime;
-                float accelRoll            = atan2(-rawAccel.x, rawAccel.z) * kRadToDeg;
-                float accelPitch = atan2(rawAccel.y, sqrt(rawAccel.x * rawAccel.x + rawAccel.z * rawAccel.z)) * kRadToDeg;
-                // Fusion
-                roll  = gyroRoll * 0.95f + accelRoll * 0.05f;
-                pitch = gyroPitch * 0.95f + accelPitch * 0.05f;
-                yaw   = gyroYaw;
-                // correct yaw
-                if (yaw > 180.f)
-                    yaw -= 360.f;
-                else if (yaw < -180.f)
-                    yaw += 360.f;
-                printf("Pitch: %+6.1f \t Roll: %+6.1f \t Yaw: %+6.1f \n", pitch, roll, yaw);
-            }
-            TCP_transmit();
-            
+        if(fifocount>= MPUPacketSize) {
+            MPU.readFIFO(MPUPacketSize, MPUbuffer);
+            TCP_transmit(&MPUbuffer, sizeof(MPUbuffer));
         }
     }
 }

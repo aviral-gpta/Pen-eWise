@@ -44,82 +44,84 @@ namespace LSM6D{
     // Accelerometer functions
 
     esp_err_t LSM::XL_init(uint8_t mode){
-        LSM_ERR_CHECK(writeBit(INT1_CTRL, 0, 0x01));
-        LSM_ERR_CHECK(writeBits(CTRL1_XL, 4, 4, mode));
+        // LSM_ERR_CHECK(writeBit(INT1_CTRL, 0, 0x01));
+        LSM_ERR_CHECK(writeBits(regs::CTRL1_XL, 4, 4, mode));
         uint8_t val;
-        readByte(CTRL1_XL, &val);
+        readByte(regs::CTRL1_XL, &val);
         ESP_LOGI("XL mode", "%i", val);
         return err;
     }
 
     esp_err_t LSM::XL_off(){
-        LSM_ERR_CHECK(writeBit(INT1_CTRL, 0, 0x00));
-        LSM_ERR_CHECK(writeByte(CTRL1_XL, 0x00));
+        // LSM_ERR_CHECK(writeBit(INT1_CTRL, 0, 0x00));
+        LSM_ERR_CHECK(writeByte(regs::CTRL1_XL, 0x00));
         return 0;
     }   
 
     // Gyroscope helpers
 
     esp_err_t LSM::G_init(uint8_t mode){
-        LSM_ERR_CHECK(writeBit(INT1_CTRL, 1, 0x01));
-        LSM_ERR_CHECK(writeBits(CTRL2_G, 4, 4, mode));
+        // LSM_ERR_CHECK(writeBit(INT1_CTRL, 1, 0x01));
+        LSM_ERR_CHECK(writeBits(regs::CTRL2_G, 4, 4, mode));
+        return err;
+    }
+
+    esp_err_t LSM::setAccelODR(uint8_t rate){
+        LSM_ERR_CHECK(writeBits(regs::CTRL1_XL, 7, 4, rate));
+        return err;
+    }
+
+    esp_err_t LSM::setAccelFullScale(uint8_t scale){
+        LSM_ERR_CHECK(writeBits(regs::CTRL2_G, 3, 2, scale));
+        return err;
+    }
+
+    esp_err_t LSM::setGyroODR(uint8_t rate){
+        LSM_ERR_CHECK(writeBits(regs::CTRL2_G, 7, 4, rate));
+        return err;
+    }
+
+    esp_err_t LSM::setGyroFullScale(uint8_t scale){
+        LSM_ERR_CHECK(writeBits(regs::CTRL2_G, 3, 2, scale));
         return err;
     }
 
     esp_err_t LSM::G_off(){
-        LSM_ERR_CHECK(writeBit(INT1_CTRL, 1, 0x00));
-        LSM_ERR_CHECK(writeByte(CTRL2_G, 0x00));
+        // LSM_ERR_CHECK(writeBit(INT1_CTRL, 1, 0x00));
+        LSM_ERR_CHECK(writeByte(regs::CTRL2_G, 0x00));
         return err;
     }   
 
-    // FIFO 
-
-    // esp_err_t LSM::FIFOStatus(uint16_t *val){
-
-    // }
-
     esp_err_t LSM::FIFO_init(lsm_fifo_mode_t mode, uint8_t XL_ODR, uint8_t G_ODR, uint16_t wtm_level){
         // Set accelerometer and gyroscope BDR (<= their ODR)
-        LSM_ERR_CHECK(writeByte(FIFO_CTRL3, XL_ODR | (G_ODR << 4)));
+        LSM_ERR_CHECK(writeByte(regs::FIFO_CTRL3, XL_ODR | (G_ODR << 4)));
         // set FIFO mode
-        LSM_ERR_CHECK(writeByte(FIFO_CTRL4, 0x06));
-        // Generate DEN signal
-        writeByte(CTRL9_XL, 0xE8);
-        writeByte(CTRL6_C, 0xC0);
-        LSM_ERR_CHECK(writeByte(CTRL1_XL, (XL_ODR << 4) | 0x0C));
-        LSM_ERR_CHECK(writeByte(CTRL2_G, (G_ODR << 4) | 0x0C));
+        LSM_ERR_CHECK(writeByte(regs::FIFO_CTRL4, mode));
+        LSM_ERR_CHECK(setWatermark(wtm_level));
+        LSM_ERR_CHECK(setAccelODR(XL_ODR));
+        LSM_ERR_CHECK(setGyroODR(G_ODR));
+        LSM_ERR_CHECK(writeByte(regs::INT1_CTRL, 0b00001000));  // enable interrupt on INT1
+
         return err;
     }
 
-    esp_err_t LSM::readFIFO(){
-        uint8_t lo, hi;
-        readByte(FIFO_STATUS1, &lo);
-        readByte(FIFO_STATUS2, &hi);
-        uint16_t numUnread = uint16_t(lo) + (uint16_t(hi & 03) << 8);
-        struct fifo_data_t* dataArray = (fifo_data_t*)(malloc(numUnread * sizeof(struct fifo_data_t)));
-        for(int i = 0; i < numUnread; ++i){
-            uint8_t tg = 0;
-            uint8_t msk = ((1 << 5) - 1) << 3;
-            LSM_ERR_CHECK(readByte(FIFO_DATA_OUT_TAG, &tg));
-            tg &= msk;
-            tg = tg >> 3;
-            dataArray[i].tag = static_cast<lsm_fifo_tag_t>(tg);
-            uint8_t data_x[2], data_y[2], data_z[2]; 
-            LSM_ERR_CHECK(readBytes(FIFO_DATA_OUT_X_L, 2, data_x));
-            LSM_ERR_CHECK(readBytes(FIFO_DATA_OUT_Y_L, 2, data_y));
-            LSM_ERR_CHECK(readBytes(FIFO_DATA_OUT_Z_L, 2, data_z));
-            dataArray[i].data_x = (uint16_t)data_x[0] | (((uint16_t)data_x[1]) << 8);
-            dataArray[i].data_y = (uint16_t)data_y[0] | (((uint16_t)data_y[1]) << 8);
-            dataArray[i].data_z = (uint16_t)data_z[0] | (((uint16_t)data_z[1]) << 8);
-        }
-        free(dataArray);
+    uint16_t LSM::getFIFOCount(){
+        LSM_ERR_CHECK(readBytes(regs::FIFO_STATUS1, 2, buffer));
+        uint16_t count = ((buffer[1] << 8) | buffer[0])&0x03FF;
+        return count;
+    }
+
+    esp_err_t LSM::readFIFO(uint16_t length, uint8_t* data){
+        for(int i = 0; i < 2*length; ++i){
+            err=LSM_ERR_CHECK(readBytes(regs::FIFO_DATA_OUT_TAG, 7, data+(i*7)));
+            }
         return err;
     }
 
     esp_err_t LSM::setWatermark(uint16_t wtm){
         uint8_t wtm_val[2] = {static_cast<uint8_t>(wtm & 0xFF), static_cast<uint8_t>(wtm >> 8)};
-        LSM_ERR_CHECK(writeByte(FIFO_CTRL1, wtm_val[0]));
-        LSM_ERR_CHECK(writeBit(FIFO_CTRL2, 0, wtm_val[1] & 1));
+        LSM_ERR_CHECK(writeByte(regs::FIFO_CTRL1, wtm_val[0]));
+        LSM_ERR_CHECK(writeBit(regs::FIFO_CTRL2, 0, wtm_val[1] & 1));
         return err;
     }
 
@@ -127,7 +129,7 @@ namespace LSM6D{
 
     esp_err_t LSM::testConnection(){
         uint8_t val;
-        readByte(WHO_AM_I, &val);
+        readByte(regs::WHO_AM_I, &val);
         return val == 0x06B ? ESP_OK : ESP_ERR_NOT_FOUND;
     }
 
@@ -136,23 +138,31 @@ namespace LSM6D{
         uint8_t y = (uint8_t)0x60;
         writeByte(x, y);
         uint8_t curr1, curr2;
-        readByte(OUTZ_L_XL, &curr1);
+        readByte(regs::OUTZ_L_XL, &curr1);
         readByte( 0x2D, &curr2);
         printXL(curr1, curr2, 2);
     }
 
-    void LSM::printXL(uint8_t lo, uint8_t hi, uint8_t scale){
-        int16_t x = 0x0;
-        x = x | hi;
-        x = x << 8;
-        x = x | lo;
-        printXL(x, scale);
-        return;
-    }
+    // void LSM::printXL(uint8_t lo, uint8_t hi, uint8_t scale){
+    //     int16_t x = 0x0;
+    //     x = x | hi;
+    //     x = x << 8;
+    //     x = x | lo;
+    //     printXL(x, scale);
+    //     return;
+    // }
 
-    void LSM::printXL(uint16_t raw_val, uint8_t scale){
-        float val = (float(raw_val) / float(1 << 16)) * scale;
-        ESP_LOGI("LSM", "Accelerometer reading: %f ", val);
+    void LSM::printXL(int16_t x_val, int16_t y_val, int16_t z_val, uint8_t scale, uint8_t time){
+        float xval = (float(x_val) / (float((1 << 16) -1))) * scale;
+        float yval = (float(y_val) / (float((1 << 16) -1))) * scale;
+        float zval = (float(z_val) / (float((1 << 16) -1))) * scale;
+        ESP_LOGI("LSM", "t: %f XL: %f %f %f", float(time), xval, yval, zval);
+    }
+    void LSM::printgyro(int16_t x_val, int16_t y_val, int16_t z_val, uint8_t scale, uint8_t time){
+        float xval = (float(x_val) / (float((1 << 16) -1))) * scale;
+        float yval = (float(y_val) / (float((1 << 16) -1))) * scale;
+        float zval = (float(z_val) / (float((1 << 16) -1))) * scale;
+        ESP_LOGI("LSM", "t: %f gyro: %f %f %f", float(time), xval, yval, zval);
     }
 
     esp_err_t LSM::reset(){

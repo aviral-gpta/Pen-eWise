@@ -6,7 +6,11 @@
 
 // This file contains all the registers of LSM6D as mentioned
 // in the document at https://www.st.com/resource/en/datasheet/lsm6dsl.pdf
-
+namespace LSM6D
+{
+/*! Registers namespace */
+namespace regs
+{
 constexpr uint8_t INT1_CTRL = 0x0D;
 constexpr uint8_t INT2_CTRL = 0x0E;
 constexpr uint8_t WHO_AM_I = 0x0F; // Who am I?
@@ -65,7 +69,8 @@ constexpr uint8_t  FIFO_DATA_OUT_Y_L = 0X7B;
 constexpr uint8_t  FIFO_DATA_OUT_Y_H = 0X7C;
 constexpr uint8_t  FIFO_DATA_OUT_Z_L = 0X7D;
 constexpr uint8_t  FIFO_DATA_OUT_Z_H = 0X7E;
-
+}
+}
 // ------------------------------------------ //
 
 #endif

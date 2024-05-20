@@ -42,7 +42,9 @@ namespace LSM6D{
         private:
             lsm_bus_t* bus;                                 // Points to the I2C bus
             lsm_i2caddr_t addr;                             // Slave address
-            uint8_t buffer[16];
+            uint8_t buffer[16];                             // Common buffer for temporary data
+            bool fifoValid[4][2];
+            uint8_t fifoTemp[4][2];
         public:
 
 
@@ -66,18 +68,21 @@ namespace LSM6D{
 
             esp_err_t XL_init(uint8_t mode = 0x6);
             esp_err_t XL_off();
+            esp_err_t setAccelFullScale(uint8_t scale);
+            esp_err_t setAccelODR(uint8_t odr);
             bool acc_available();
 
             // Gyroscope functions
-
+            esp_err_t setGyroFullScale(uint8_t scale);
+            esp_err_t setGyroODR(uint8_t odr);
             esp_err_t G_init(uint8_t mode = 0x6);
             esp_err_t G_off();
             bool gyro_available();
 
             // FIFO functions
-
-            esp_err_t FIFO_init(lsm_fifo_mode_t mode, uint8_t XL_ODR, uint8_t G_ODR, uint16_t wtm_level = 2);
-            esp_err_t readFIFO();              // Read Data(2 Byte long) to 'data'
+            uint16_t getFIFOCount();
+            esp_err_t FIFO_init(lsm_fifo_mode_t mode, uint8_t XL_ODR, uint8_t G_ODR, uint16_t wtm_level = 200);
+            esp_err_t readFIFO(uint16_t length, uint8_t* data);              // Read Data(2 Byte long) to 'data'
             esp_err_t setWatermark(uint16_t wtm = 1 << 5);
 
             // Utils
@@ -87,7 +92,9 @@ namespace LSM6D{
 
             void getAcc();
             void printXL(uint8_t lo, uint8_t hi, uint8_t scale);
-            void printXL(uint16_t raw_val, uint8_t scale = 2);
+            void printXL(int16_t x_val, int16_t y_val, int16_t z_val, uint8_t scale, uint8_t time);
+
+            void printgyro(int16_t x_val, int16_t y_val, int16_t z_val, uint8_t scale, uint8_t time);
 
             // Tap detection
 

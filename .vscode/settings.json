@@ -32,6 +32,10 @@
     ],
     "idf.portWin": "COM3",
     "files.associations": {
-        "mpu6050.h": "c"
+        "mpu6050.h": "c",
+        "string_view": "cpp",
+        "regex": "cpp",
+        "xlocale": "cpp",
+        "xstring": "cpp"
     },
 }
